@@ -1,5 +1,9 @@
 const tableNames = require('../tableNames');
 
+/**
+  @param {Knex} knex
+*/
+
 function references(table, tablename) {
   table.integer(`${tablename}_id`).unsigned().references('id').inTable(tablename);
 }

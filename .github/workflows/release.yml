@@ -1,0 +1,67 @@
+name: Releases Action
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  createRelease:
+    name: Create Release
+    runs-on: 'ubuntu-latest'
+    outputs:
+      package_version: ${{env.PACKAGE_VERSION}}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: test
+          release_name: Release ${{ steps.create_release.outputs.upload_url }}
+          draft: true
+          prerelease: false
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - name: get-npm-version
+        id: package-version
+        uses: nyaayaya/package-version@v1
+  Release:
+    runs-on: ${{ matrix.os }}
+    needs: createRelease
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest #SNAP
+            name: 'Chatter_${{ needs.createRelease.outputs.package_version }}_amd64.snap'
+            type: 'application/vnd.snap'
+          - os: ubuntu-latest #APPIMAGE
+            name: Chatter-${{ needs.createRelease.outputs.package_version }}.AppImage
+            type: 'application/vnd.appimage'
+          - os: windows-latest
+            name: 'Chatter Setup ${{ needs.createRelease.outputs.package_version }}.exe'
+            type: 'application/vnd.microsoft.portable-executable'
+    steps:
+      - uses: actions/checkout@v2
+      ###NODE
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - run: npm ci
+      ###PACKAGING
+      - name: Build/release Electron app
+        uses: samuelmeuli/action-electron-builder@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+      ###UPLOADING
+      - name: Upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.createRelease.outputs.upload_url }}
+          asset_path: ./dist/${{ matrix.name }}
+          asset_name: ${{ matrix.name }}
+          asset_content_type: ${{ matrix.type }}
